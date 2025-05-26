@@ -1,3 +1,4 @@
+
 import type { Config } from 'tailwindcss';
 
 const config: Config = {
@@ -6,6 +7,11 @@ const config: Config = {
     './pages/**/*.{js,ts,jsx,tsx,mdx}',
     './components/**/*.{js,ts,jsx,tsx,mdx}',
     './app/**/*.{js,ts,jsx,tsx,mdx}',
+  ],
+  safelist: [
+    'playing:grayscale-0',
+    'playing:scale-105',
+    'playing:bg-opacity-20',
   ],
   theme: {
     extend: {
@@ -85,6 +91,14 @@ const config: Config = {
       },
     },
   },
+  variants: {
+    extend: {
+      grayscale: ['playing'],
+      scale: ['playing'],
+      backgroundOpacity: ['playing'],
+    },
+  },
   plugins: [require('tailwindcss-animate')],
 };
+
 export default config;

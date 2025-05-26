@@ -5,92 +5,119 @@ import { Play } from 'lucide-react';
 
 const VideoThumbnail = ({ video, isMobile, isPlaying, onPlay, onPause }) => {
   const [localIsPlaying, setLocalIsPlaying] = useState(false);
+  const [hasError, setHasError] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
   const videoRef = useRef(null);
 
-  // Sync local state with parent state
   useEffect(() => {
-    console.log(`Video ${video.id}: isPlaying=${isPlaying}, localIsPlaying=${localIsPlaying}`);
-    if (isPlaying && !localIsPlaying) {
-      // If this video is now the currently playing one, play it
+    if (isPlaying && !localIsPlaying && !hasError) {
       if (videoRef.current) {
-        console.log(`Playing video ${video.id} because it became the currently playing video`);
         videoRef.current.play().catch(error => {
           console.error(`Failed to play video ${video.id}:`, error);
+          setHasError(true);
         });
         setLocalIsPlaying(true);
       }
     } else if (!isPlaying && localIsPlaying) {
-      // If this video is no longer the currently playing one, pause it
       if (videoRef.current) {
-        console.log(`Pausing video ${video.id} because another video started`);
         videoRef.current.pause();
         setLocalIsPlaying(false);
       }
     }
-  }, [isPlaying, localIsPlaying, video.id]);
+  }, [isPlaying, localIsPlaying, video.id, hasError]);
 
-  const handlePlayClick = async () => {
+  const handlePlayClick = async (e) => {
+    e.preventDefault();
     if (videoRef.current) {
       try {
-        await videoRef.current.play();
-        console.log(`Video ${video.id} started playing via button click`);
-        setLocalIsPlaying(true);
-        onPlay(); // Notify parent that this video is playing
+        if (hasError) setHasError(false);
+
+        if (videoRef.current.paused) {
+          await videoRef.current.play();
+          setLocalIsPlaying(true);
+          onPlay();
+        } else {
+          videoRef.current.pause();
+          setLocalIsPlaying(false);
+          onPause();
+        }
       } catch (error) {
-        console.error(`Failed to play video ${video.id}:`, error);
+        console.error(`Video ${video.id}: Error during play/pause:`, error);
+        setHasError(true);
       }
     }
   };
 
   const handlePause = () => {
-    console.log(`Video ${video.id} paused`);
     setLocalIsPlaying(false);
-    onPause(); // Notify parent that this video has paused
+    onPause();
   };
 
   const handleEnded = () => {
-    console.log(`Video ${video.id} ended`);
     setLocalIsPlaying(false);
-    onPause(); // Notify parent that this video has ended
+    onPause();
   };
 
   const handleError = (e) => {
-    console.error(`Error with video ${video.id}:`, e);
+    console.error(`Video ${video.id}: Error:`, e);
+    setHasError(true);
+    setLocalIsPlaying(false);
+    onPause();
   };
 
   return (
     <div 
-      className={`relative group ${isMobile ? 'mb-4' : 'mx-3'}`}
+      className={`relative group cursor-pointer ${isMobile ? 'mb-4' : 'mx-3'}`}
       style={{
         width: isMobile ? '200px' : '300px',
         height: isMobile ? '300px' : '400px',
       }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onClick={handlePlayClick}
     >
-      <div className="absolute inset-0 overflow-hidden rounded-lg shadow-lg">
+      <div className="absolute inset-0 overflow-hidden rounded-lg shadow-lg transition-all duration-300 ease-in-out">
         <video 
           ref={videoRef}
-          src={video.videoSrc} // Use videoSrc from props
-          className="absolute inset-0 w-full h-full object-cover filter grayscale transition-all duration-300 transform group-hover:grayscale-0 group-hover:scale-105"
-          controls={localIsPlaying} // Show controls only when playing
-          onPause={handlePause} // Update state when paused
-          onEnded={handleEnded} // Update state when video ends
-          onError={handleError} // Log errors if video fails to load/play
+          className={`
+            absolute inset-0 w-full h-full object-cover transition-all duration-300 ease-in-out
+            ${localIsPlaying ? 'scale-105 filter-none' : 'grayscale'}
+            ${isHovered && !localIsPlaying ? 'scale-105 grayscale-0' : ''}
+          `}
+          controls={localIsPlaying && !hasError}
+          onPause={handlePause}
+          onEnded={handleEnded}
+          onError={handleError}
+        >
+          <source src={video.videoSrc} type="video/mp4" />
+          Your browser does not support the video tag.
+        </video>
+
+        <div
+          className={`
+            absolute inset-0 transition-opacity duration-300 ease-in-out
+            ${localIsPlaying || isHovered ? 'bg-black bg-opacity-20' : 'bg-black bg-opacity-30'}
+          `}
         />
-        
-        {/* Overlay to darken the image */}
-        <div className="absolute inset-0 bg-black bg-opacity-30 group-hover:bg-opacity-20 transition-opacity duration-300" />
-        
-        {/* Video Title */}
+
         <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black to-transparent">
           <h3 className="text-white font-semibold text-lg">{video.title}</h3>
         </div>
+
+        {hasError && (
+          <div className="absolute inset-0 flex items-center justify-center text-white bg-black bg-opacity-50">
+            <p>Failed to load video</p>
+          </div>
+        )}
       </div>
-      
-      {/* Play Button - Show only when video is not playing */}
-      {!localIsPlaying && (
+
+      {(!localIsPlaying || hasError) && (
         <button 
-          onClick={handlePlayClick}
-          className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-14 h-14 rounded-full bg-white bg-opacity-80 flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:bg-opacity-100"
+          className={`
+            absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 
+            w-14 h-14 rounded-full bg-white bg-opacity-80 flex items-center justify-center 
+            transition-all duration-300 ease-in-out hover:scale-110 hover:bg-opacity-100
+          `}
           aria-label="Play video"
         >
           <Play size={24} className="text-[#1A0B2E] ml-1" />
